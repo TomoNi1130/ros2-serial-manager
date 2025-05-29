@@ -72,10 +72,11 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
         std::string log_msg(decorded_data.begin(), decorded_data.end());
         if (id != 0)
           RCLCPP_INFO(logger, "[%d]log: %s", id, log_msg.c_str());
-      } else if (type_keeper == 0xaa) {  // heartbeat
+      } else if (type_keeper == 0xaa) {  // マイコンからの自己紹介
         for (uint8_t byte : decorded_data)
           str += std::to_string(byte) + " ";
-        if (std::equal(heartbeat_bytes.begin(), heartbeat_bytes.end(), decorded_data.begin())) id = decorded_data[3];
+        if (std::equal(self_intro_bytes.begin(), self_intro_bytes.end(), decorded_data.begin())) id = decorded_data[3];
+        RCLCPP_INFO(logger, "%s %s %sが ID[%s %d %s]として登録されました", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
       }
       receive_bytes.clear();
     }
@@ -96,6 +97,7 @@ SerialManager::SerialManager(const rclcpp::NodeOptions &options) : rclcpp::Node(
   subscription_ = this->create_subscription<interface_pkg::msg::SerialMsg>("send_to_micro", 10, std::bind(&SerialManager::topic_callback, this, _1));
   publisher_ = this->create_publisher<interface_pkg::msg::SerialMsg>("micro_data", 10);
   send_msg_timer_ = this->create_wall_timer(std::chrono::milliseconds(50), std::bind(&SerialManager::serial_send, this));
+  heart_beat_timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&SerialManager::serial_heartbeat, this));
   port_names = find_serial_port();
   if (!port_names.empty()) {
     RCLCPP_INFO(this->get_logger(), "%s %zu つのシリアルデバイスが接続されています%s", green.c_str(), port_names.size(), reset.c_str());
@@ -149,6 +151,13 @@ void SerialManager::serial_send() {
       }
     }
   send_msgs.clear();
+}
+
+void SerialManager::serial_heartbeat() {
+  for (const auto &serial_port_ptr : serial_ports) {
+    SerialPort &serial_port = *serial_port_ptr;
+    serial_port.send_serial(serial_port.heartbeat_bytes);
+  }
 }
 
 }  // namespace serial_manager

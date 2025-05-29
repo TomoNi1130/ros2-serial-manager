@@ -24,6 +24,9 @@ class SerialPort {
   void send_serial(const std::vector<uint8_t>& send_bytes);
   int get_id();
 
+  std::vector<uint8_t> heartbeat_bytes = {0xaa, 0x01, 0x01, 0x00};  // ハートビート用のバイト列
+  std::vector<uint8_t> self_intro_bytes = {0x24, 0x08, 0x60};       // 自己紹介用のバイト列
+
  private:
   void serial_callback(const boost::system::error_code& ec, std::size_t bytes_transferred);
 
@@ -64,8 +67,6 @@ class SerialPort {
   rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_;
   rclcpp::Logger logger;
 
-  std::vector<uint8_t> heartbeat_bytes = {0x24, 0x08, 0x60};  // ハートビート用のバイト列
-
   std::string red = "\033[31m";     // 赤色
   std::string green = "\033[32m";   // 緑
   std::string yellow = "\033[33m";  // 黄色
@@ -81,6 +82,7 @@ class SerialManager : public rclcpp::Node {
   std::vector<std::string> find_serial_port();
   void topic_callback(const interface_pkg::msg::SerialMsg& msg);
   void serial_send();
+  void serial_heartbeat();
   template <typename T>
   std::vector<uint8_t> cobs_encode(const std::vector<T>& input) {
     std::vector<uint8_t> encoded;
@@ -140,6 +142,7 @@ class SerialManager : public rclcpp::Node {
   rclcpp::Subscription<interface_pkg::msg::SerialMsg>::SharedPtr subscription_;
   rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr send_msg_timer_;
+  rclcpp::TimerBase::SharedPtr heart_beat_timer_;
 };
 
 }  // namespace serial_manager
