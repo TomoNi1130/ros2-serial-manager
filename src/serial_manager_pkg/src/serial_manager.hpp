@@ -1,8 +1,9 @@
-#ifndef SERIAL_MANAGER_HPP
-#define SERIAL_MANAGER_HPP
+#ifndef COBS_SERIAL_MANAGER_HPP
+#define COBS_SERIAL_MANAGER_HPP
 
 #include <boost/asio.hpp>
 #include <filesystem>
+#include <string>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -20,7 +21,7 @@ class SerialPort {
  public:
   SerialPort(boost::asio::io_context& io, const std::string& port_name, rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger& logger);
   ~SerialPort();
-  void send_serial(const std::string& send_str);
+  void send_serial(const std::vector<uint8_t>& send_bytes);
   int get_id();
 
  private:
@@ -57,8 +58,13 @@ class SerialPort {
   std::array<char, 1> buffer;
   int id;  // 0はなし
 
+  interface_pkg::msg::SerialMsg pub_msg_data_;
+
+  std::vector<uint8_t> receive_bytes;
   rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_;
   rclcpp::Logger logger;
+
+  std::vector<uint8_t> heartbeat_bytes = {0x24, 0x08, 0x60};  // ハートビート用のバイト列
 
   std::string red = "\033[31m";     // 赤色
   std::string green = "\033[32m";   // 緑
@@ -75,6 +81,49 @@ class SerialManager : public rclcpp::Node {
   std::vector<std::string> find_serial_port();
   void topic_callback(const interface_pkg::msg::SerialMsg& msg);
   void serial_send();
+  template <typename T>
+  std::vector<uint8_t> cobs_encode(const std::vector<T>& input) {
+    std::vector<uint8_t> encoded;
+    if constexpr (std::is_same_v<T, float>)
+      encoded.push_back(0x01);
+    else if constexpr (std::is_same_v<T, uint8_t>)
+      encoded.push_back(0x02);
+    else
+      encoded.push_back(0xff);
+    encoded.push_back(0x00);
+    uint8_t count = 0;  // 次にsource_data[i]に0x00が出るまでの配列番号をカウント
+    int mark = 1;       // 最後に0x00が出たsource_data[i]の配列番号をキープ
+    for (size_t i = 0; i < input.size(); ++i) {
+      const uint8_t* raw = reinterpret_cast<const uint8_t*>(&input[i]);
+      for (size_t j = 0; j < sizeof(T); ++j) {
+        if (raw[j] != 0x00) {
+          encoded.push_back(raw[j]);
+          count++;
+          if (count == 0xFF) {
+            encoded[mark] = count;
+            mark = encoded.size();
+            encoded.push_back(0x00);
+            count = 0;
+          }
+        } else {
+          encoded[mark] = count + 1;
+          mark = encoded.size();
+          encoded.push_back(0x00);
+          count = 0;
+        }
+      }
+    }
+    count++;
+    encoded[mark] = count;
+    encoded.push_back(0x00);
+    return encoded;
+  }
+
+  struct SendMsgData {
+    uint8_t msg_id;
+    std::vector<uint8_t> float_data;
+    std::vector<uint8_t> bool_data;
+  };
 
   boost::asio::io_context io;
   std::thread io_thread_;
@@ -85,7 +134,8 @@ class SerialManager : public rclcpp::Node {
   std::string green = "\033[32m";  // 緑
   std::string reset = "\033[0m";   // リセット
 
-  std::vector<std::string> send_msgs;
+  std::vector<SendMsgData> send_msgs;
+  std::vector<SendMsgData> pub_msgs;
 
   rclcpp::Subscription<interface_pkg::msg::SerialMsg>::SharedPtr subscription_;
   rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_;

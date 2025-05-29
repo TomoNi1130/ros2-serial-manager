@@ -16,6 +16,6 @@ def generate_launch_description():
                 plugin='serial_manager::SerialManager',
                 name='serial_manager',
                 extra_arguments=[{'use_intra_process_comms': True}],
-            )
+            ),
         ])
     return LaunchDescription([run])

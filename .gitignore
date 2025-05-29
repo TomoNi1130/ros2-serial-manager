@@ -1,3 +1,6 @@
+/.vscode
 /build
 /install
 /log
+/src/drive_controller_pkg
+/src/ros2_controller_pkg

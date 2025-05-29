@@ -12,46 +12,72 @@ SerialPort::SerialPort(boost::asio::io_context &io, const std::string &port_name
 
 int SerialPort::get_id() { return id; }
 
+float bytes_to_float(uint8_t *bytes) {
+  float value;
+  memcpy(&value, bytes, sizeof(float));
+  return value;
+}
+
 void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_t bytes_transferred) {
   if (!ec) {
-    receive_msg += buffer[0];
-    if (receive_msg.find("\n") != std::string::npos) {
-      receive_msg.erase(receive_msg.length() - 2, receive_msg.length());
-      if (receive_msg.substr(0, 5) == "[new]") {
-        receive_msg.erase(0, 5);
-        id = std::stoi(receive_msg);
-        RCLCPP_INFO(logger, "port:%s's id set [%d]", port_name.c_str(), id);
-      } else if (id == 0) {
-        RCLCPP_INFO(logger, "[%swarm%s IDの未指定] ポート%s %s %sのidが指定されていません", red.c_str(), reset.c_str(), yellow.c_str(), port_name.c_str(), reset.c_str());
-      } else if (receive_msg.substr(0, 5) == "[inf]") {
-        receive_msg.erase(0, 5);
-        size_t num_start = receive_msg.find("n");
-        size_t flag_start = receive_msg.find("b");
-        size_t str_start = receive_msg.find("s");
-        std::string num_str = receive_msg.substr(num_start + 1, flag_start - num_start - 1);
-        std::string flag_str = receive_msg.substr(flag_start + 1, str_start - flag_start - 1);
-        std::string str = receive_msg.substr(str_start + 1, receive_msg.size() - str_start);  // nbsのぶんずらす
+    uint8_t buf = buffer[0];
+    receive_bytes.push_back(buf);
+    if (buf == 0) {
+      uint8_t type_keeper = receive_bytes[0];  // 型識別用のデータ(使わない)
+      receive_bytes.erase(receive_bytes.begin());
 
-        interface_pkg::msg::SerialMsg publish_msg;
-        if (num_start != std::string::npos) {
-          publish_msg.numbers = split_strring<float>(num_str);
-          // RCLCPP_INFO(logger, "%s", num_str.c_str());
+      uint8_t OBH;  // ゼロが出るまでの数
+      std::vector<uint8_t> decorded_data;
+      OBH = receive_bytes[0];
+      for (uint8_t i = 1; i < receive_bytes.size(); i++) {
+        if (i == OBH) {
+          decorded_data.push_back(0);
+          OBH = receive_bytes[i] + OBH;
+        } else {
+          decorded_data.push_back(receive_bytes[i]);
         }
-        if (flag_start != std::string::npos) {
-          publish_msg.flags = split_strring<bool>(flag_str);
-          // RCLCPP_INFO(logger, "%s", flag_str.c_str());
-        }
-        if (str_start != std::string::npos) {
-          publish_msg.msg_str = split_strring<std::string>(str);
-          // RCLCPP_INFO(logger, "%s", str.c_str());
-        }
-        publish_msg.msg_id = uint8_t(id);
-        publisher_->publish(publish_msg);
-      } else if (receive_msg.substr(0, 5) == "[log]") {
-        receive_msg.erase(0, 5);
-        RCLCPP_INFO(logger, "[log id:%d]%s", id, receive_msg.c_str());
       }
-      receive_msg.clear();
+      std::string str;
+      for (uint8_t byte : receive_bytes)
+        str += std::to_string(byte) + " ";
+      str.clear();
+
+      if (type_keeper == 0x01) {  // 小数
+        std::vector<float> results;
+        for (size_t i = 0; i < decorded_data.size() / sizeof(float); i++) {
+          float result = bytes_to_float(&decorded_data[i * sizeof(float)]);
+          results.push_back(result);
+        }
+        if (id != 0) {
+          pub_msg_data_.msg_id = id;
+          pub_msg_data_.numbers.clear();
+          pub_msg_data_.numbers = results;
+          publisher_->publish(pub_msg_data_);
+        }
+      } else if (type_keeper == 0x02) {  // bool
+        std::vector<bool> results;
+        for (size_t i = 0; i < decorded_data.size(); i++) {
+          if (decorded_data[i] == 0)
+            results.push_back(false);
+          else if (decorded_data[i] == 1)
+            results.push_back(true);
+        }
+        if (id != 0) {
+          pub_msg_data_.msg_id = id;
+          pub_msg_data_.flags.clear();
+          pub_msg_data_.flags = results;
+          publisher_->publish(pub_msg_data_);
+        }
+      } else if (type_keeper == 0xfe) {  // log
+        std::string log_msg(decorded_data.begin(), decorded_data.end());
+        if (id != 0)
+          RCLCPP_INFO(logger, "[%d]log: %s", id, log_msg.c_str());
+      } else if (type_keeper == 0xaa) {  // heartbeat
+        for (uint8_t byte : decorded_data)
+          str += std::to_string(byte) + " ";
+        if (std::equal(heartbeat_bytes.begin(), heartbeat_bytes.end(), decorded_data.begin())) id = decorded_data[3];
+      }
+      receive_bytes.clear();
     }
   } else {
     RCLCPP_ERROR(logger, "Serial error: %s", ec.message().c_str());
@@ -60,8 +86,8 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
   serial.async_read_some(boost::asio::buffer(buffer, 1), [this](const boost::system::error_code &error, size_t bytes_transferred) { this->serial_callback(error, bytes_transferred); });
 }
 
-void SerialPort::send_serial(const std::string &send_str) {
-  boost::asio::async_write(serial, boost::asio::buffer(send_str), [this](boost::system::error_code ec, std::size_t bytes_transferred) {});
+void SerialPort::send_serial(const std::vector<uint8_t> &send_bytes) {
+  boost::asio::async_write(serial, boost::asio::buffer(send_bytes), [this](boost::system::error_code ec, std::size_t bytes_transferred) {});
 }
 
 SerialPort::~SerialPort() {}
@@ -105,33 +131,24 @@ std::vector<std::string> SerialManager::find_serial_port() {
 }
 
 void SerialManager::topic_callback(const interface_pkg::msg::SerialMsg &msg) {
-  std::string send_msg;
-  send_msg += "n";
-  for (double number : msg.numbers)
-    send_msg += ":" + std::to_string(number);
-  send_msg += "b";
-  for (bool flag : msg.flags)
-    if (flag)
-      send_msg += ":1";
-    else
-      send_msg += ":0";
-  send_msg += "s";
-  for (std::string str : msg.msg_str)
-    send_msg += ":" + str;
-  send_msg += "\n";
-  send_msgs[msg.msg_id] = send_msg;
+  SendMsgData send_msg_data;
+  send_msg_data.msg_id = msg.msg_id;
+  send_msg_data.float_data = cobs_encode(msg.numbers);
+  std::vector<uint8_t> booldata(msg.flags.begin(), msg.flags.end());
+  send_msg_data.bool_data = cobs_encode(booldata);
+  send_msgs.push_back(send_msg_data);
 }
 
 void SerialManager::serial_send() {
-  for (size_t i = 0; i < send_msgs.size(); i++) {
+  for (size_t i = 0; i < send_msgs.size(); i++)
     for (const auto &serial_port_ptr : serial_ports) {
       SerialPort &serial_port = *serial_port_ptr;
-      if (serial_port.get_id() == i && send_msgs[i] != "") {
-        serial_port.send_serial(send_msgs[i]);
-        send_msgs[i] = "";
+      if (serial_port.get_id() == send_msgs[i].msg_id) {
+        serial_port.send_serial(send_msgs[i].float_data);
+        serial_port.send_serial(send_msgs[i].bool_data);
       }
     }
-  }
+  send_msgs.clear();
 }
 
 }  // namespace serial_manager
