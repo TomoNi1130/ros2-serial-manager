@@ -1,4 +1,7 @@
 複数のマイコンを同時に管理するためのもの.
 マイコンはIDで管理している.
 serial_msnager_testと同時に使おう  
-interface_pkg::msg::SerialMsg型のmicro_dataトピックに投げられたものをすべて送る.
+interface_pkg::msg::SerialMsg型のsend_to_microトピックに投げられたものをすべて送る.
+送られてきたデータは同型のmicro_dataトピックにて共有される.
+
+シリアルの送受信にはboost/asioを用いている.
