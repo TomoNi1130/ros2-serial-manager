@@ -25,7 +25,7 @@ ament_target_dependencies(serial_manager
 rclcpp_components_register_node(
     serial_manager
     PLUGIN "serial_manager::SerialManager"
-    EXECUTABLE serial_manager_help
+    EXECUTABLE serial_manager_node
 )
 
 ament_export_targets(export_component)

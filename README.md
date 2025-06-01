@@ -5,3 +5,8 @@ interface_pkg::msg::SerialMsg型のsend_to_microトピックに投げられた�
 送られてきたデータは同型のmicro_dataトピックにて共有される.
 
 シリアルの送受信にはboost/asioを用いている.
+
+-導入-
+colcon build
+. install/setup.bash
+ros2 launch serial_manager_pkg serial_manager.launch.py
