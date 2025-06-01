@@ -1,4 +1,4 @@
-#include "new_serial_manager.hpp"
+#include "serial_manager.hpp"
 
 #include <rclcpp_components/register_node_macro.hpp>
 
