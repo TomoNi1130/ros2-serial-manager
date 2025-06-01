@@ -40,6 +40,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
       std::string str;
       for (uint8_t byte : receive_bytes)
         str += std::to_string(byte) + " ";
+      // RCLCPP_INFO(logger, "Received bytes: %s", str.c_str());
       str.clear();
 
       if (type_keeper == 0x01) {  // 小数
