@@ -12,34 +12,10 @@ find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(interface_pkg REQUIRED)
 
-# add_library(serial_manager SHARED
-#    src/serial_manager.cpp)
+add_library(serial_manager SHARED
+   src/serial_manager.cpp)
 
-# ament_target_dependencies(serial_manager
-#   rclcpp
-#   rclcpp_components
-#   std_msgs
-#   interface_pkg
-# )
-
-# rclcpp_components_register_node(
-#     serial_manager
-#     PLUGIN "serial_manager::SerialManager"
-#     EXECUTABLE serial_manager_help
-# )
-
-# ament_export_targets(export_component)
-# install(TARGETS serial_manager
-#         EXPORT export_component
-#         ARCHIVE DESTINATION lib
-#         LIBRARY DESTINATION lib
-#         RUNTIME DESTINATION bin
-# )
-
-add_library(new_serial_manager SHARED
-   src/new_serial_manager.cpp)
-
-ament_target_dependencies(new_serial_manager
+ament_target_dependencies(serial_manager
   rclcpp
   rclcpp_components
   std_msgs
@@ -47,13 +23,13 @@ ament_target_dependencies(new_serial_manager
 )
 
 rclcpp_components_register_node(
-    new_serial_manager
+    serial_manager
     PLUGIN "serial_manager::SerialManager"
-    EXECUTABLE new_serial_manager_node
+    EXECUTABLE serial_manager_help
 )
 
 ament_export_targets(export_component)
-install(TARGETS new_serial_manager
+install(TARGETS serial_manager
         EXPORT export_component
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
