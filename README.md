@@ -22,3 +22,9 @@ colcon build
 colcon build
 . install/setup.bash
 ros2 launch serial_manager_pkg serial_manager.launch.py or ros2 run serial_manager_pkg serial_manager_node
+
+-使用-
+マイコンと接続
+起動する
+send_to_microトピックにinterface::msg::SerialMsgを送る
+micro_dataトピックを同型でサブスクする
