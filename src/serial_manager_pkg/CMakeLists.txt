@@ -10,7 +10,17 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(interface_pkg REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+include_directories(
+  ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
+)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/SerialMsg.msg"
+  DEPENDENCIES geometry_msgs
+)
 
 add_library(serial_manager SHARED
    src/serial_manager.cpp)
@@ -19,7 +29,6 @@ ament_target_dependencies(serial_manager
   rclcpp
   rclcpp_components
   std_msgs
-  interface_pkg
 )
 
 rclcpp_components_register_node(
@@ -40,6 +49,8 @@ install(DIRECTORY
   launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
+
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

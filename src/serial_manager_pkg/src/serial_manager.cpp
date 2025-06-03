@@ -10,7 +10,7 @@ float bytes_to_float(uint8_t *bytes) {
   return value;
 }
 
-SerialPort::SerialPort(boost::asio::io_context &io, const std::string &port_name, rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger &logger) : serial(io), port_name(port_name), id(0), publisher_(publisher_), logger(logger) {
+SerialPort::SerialPort(boost::asio::io_context &io, const std::string &port_name, rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger &logger) : serial(io), port_name(port_name), id(0), publisher_(publisher_), logger(logger) {
   send_msg_thread = std::thread([this]() { SerialPort::send_serial(); });
   heartbeat_thread = std::thread([this]() { SerialPort::heartbeat(); });
   state_ = SETUP;
@@ -198,8 +198,8 @@ void SerialPort::heartbeat() {
 }
 
 SerialManager::SerialManager(const rclcpp::NodeOptions &options) : rclcpp::Node("Serial_manager", options), io() {
-  subscription_ = this->create_subscription<interface_pkg::msg::SerialMsg>("send_to_micro", 10, std::bind(&SerialManager::topic_callback, this, std::placeholders::_1));
-  publisher_ = this->create_publisher<interface_pkg::msg::SerialMsg>("micro_data", 10);
+  subscription_ = this->create_subscription<serial_manager_pkg::msg::SerialMsg>("send_to_micro", 10, std::bind(&SerialManager::topic_callback, this, std::placeholders::_1));
+  publisher_ = this->create_publisher<serial_manager_pkg::msg::SerialMsg>("micro_data", 10);
   port_names = find_serial_port();
   if (!port_names.empty()) {
     RCLCPP_INFO(this->get_logger(), "%s %zu つのシリアルデバイスが接続されています%s", green.c_str(), port_names.size(), reset.c_str());
@@ -238,7 +238,7 @@ std::vector<std::string> SerialManager::find_serial_port() {
   return device_paths;
 }
 
-void SerialManager::topic_callback(const interface_pkg::msg::SerialMsg &msg) {
+void SerialManager::topic_callback(const serial_manager_pkg::msg::SerialMsg &msg) {
   SendMsgData send_msg_data;
   for (std::string &port_name : port_names) {
     auto &it = serial_ports[port_name];

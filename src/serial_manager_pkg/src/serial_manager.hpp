@@ -8,8 +8,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "interface_pkg/msg/serial_msg.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "serial_manager_pkg/msg/serial_msg.hpp"
 
 namespace serial_manager {
 
@@ -38,7 +38,7 @@ struct SendMsgData {
 
 class SerialPort {
  public:
-  SerialPort(boost::asio::io_context& io, const std::string& port_name, rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger& logger);
+  SerialPort(boost::asio::io_context& io, const std::string& port_name, rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger& logger);
   ~SerialPort();
   void set_sendmsg(const std::vector<uint8_t>& send_bytes);
   void set_sendmsg(const SendMsgData& send_bytes);
@@ -68,12 +68,12 @@ class SerialPort {
   std::array<uint8_t, 1> buffer;
   uint8_t id;  // 0はなし
 
-  interface_pkg::msg::SerialMsg pub_msg_data_;
+  serial_manager_pkg::msg::SerialMsg pub_msg_data_;
 
   std::vector<uint8_t> decorded_data;
   std::vector<uint8_t> receive_bytes;
   SendMsgData send_msg;
-  rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_;
+  rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_;
   rclcpp::Logger logger;
 
   rclcpp::Clock clock;
@@ -92,7 +92,7 @@ class SerialManager : public rclcpp::Node {
   ~SerialManager();
 
  private:
-  void topic_callback(const interface_pkg::msg::SerialMsg& msg);
+  void topic_callback(const serial_manager_pkg::msg::SerialMsg& msg);
   std::vector<std::string> find_serial_port();
 
   boost::asio::io_context io;
@@ -101,8 +101,8 @@ class SerialManager : public rclcpp::Node {
   std::vector<std::string> port_names;
   std::unordered_map<std::string, std::unique_ptr<SerialPort>> serial_ports;
 
-  rclcpp::Subscription<interface_pkg::msg::SerialMsg>::SharedPtr subscription_;
-  rclcpp::Publisher<interface_pkg::msg::SerialMsg>::SharedPtr publisher_;
+  rclcpp::Subscription<serial_manager_pkg::msg::SerialMsg>::SharedPtr subscription_;
+  rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_;
 };
 
 template <typename T>
