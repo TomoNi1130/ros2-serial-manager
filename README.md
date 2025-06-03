@@ -1,27 +1,38 @@
-複数のマイコンを同時に管理するためのもの.
-マイコンはIDで管理している.
-serial_msnager_testと同時に使おう  
-serial_manager_pkg::msg::SerialMsg型のsend_to_microトピックに投げられたものをすべて送る.
-送られてきたデータは同型のmicro_dataトピックにて共有される.
+# 複数マイコン同時管理システム
 
-シリアルの送受信にはboost/asioを用いている.
+このパッケージは、複数のマイコンを同時に管理するためのものです。  
+各マイコンはIDで管理されています。  
+`serial_msnager_test`と同時に使用してください。
 
--注意-
-他のシリアル監視系ツールがあると通信品質が悪くなるので避けましょう(特にvscodeのシリアルモニターつけっぱとか)
+- `serial_manager_pkg::msg::SerialMsg` 型の `send_to_micro` トピックに送信されたデータは、すべてマイコンに送られます。
+- 受信したデータは同型の `micro_data` トピックで共有されます。
 
--導入-
-boost/asioが必要です。
-インストールが必要であればしましょう。調べてくれ
+## シリアル通信
 
--起動時
+シリアルの送受信には **boost/asio** を使用しています。
+
+## 注意
+
+他のシリアル監視系ツールが動作していると通信品質が悪化します。  
+特に VSCode のシリアルモニターを開きっぱなしにしないよう注意してください。
+
+## 導入
+
+- boost/asio が必要です。未インストールの場合は各自で導入してください。
+
+## 起動方法
+
+```sh
 colcon build
-. install/setup.bash
+. [setup.bash](http://_vscodecontentref_/0)
 ros2 launch serial_manager_pkg serial_manager.launch.py
-                    or
+# または
 ros2 run serial_manager_pkg serial_manager_node
+```
 
--使用-
-マイコンと接続
-起動する
-send_to_microトピックにinterface::msg::SerialMsgを送る
-micro_dataトピックを同型でサブスクする
+## 使用方法
+
+1. マイコンと接続する
+2. ノードを起動する
+3. `send_to_micro` トピックに `serial_manager_pkg::msg::SerialMsg` を送信する
+4. `micro_data` トピックを同型でサブスクライブする
