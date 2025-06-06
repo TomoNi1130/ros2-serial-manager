@@ -5,7 +5,7 @@
     "python.analysis.extraPaths": [
         "/opt/ros/jazzy/lib/python3.12/site-packages"
     ],
-    "cmake.sourceDirectory": "/home/tomoni11/Documents/ROS2/ROS2_PRODCTS/Serial_manager/build/interface_pkg/interface_pkg__py",
+    "cmake.sourceDirectory": "/home/tomoni11/Documents/ROS2/ROS2_PRODCTS/Serial_manager/src/drive_controller_pkg",
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "cctype": "cpp",

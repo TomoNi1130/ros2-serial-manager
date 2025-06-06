@@ -50,7 +50,14 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/launch
 )
 
+get_default_rmw_implementation(rmw_implementation)
+find_package("${rmw_implementation}" REQUIRED)
+get_rmw_typesupport(typesupport_impls "${rmw_implementation}" LANGUAGE "cpp")
 
+foreach(typesupport_impl ${typesupport_impls})
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "${typesupport_impl}")
+  target_link_libraries(serial_manager "${cpp_typesupport_target}")
+endforeach()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

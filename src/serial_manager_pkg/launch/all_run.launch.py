@@ -9,6 +9,7 @@ def generate_launch_description():
         namespace='UC',
         package='rclcpp_components',
         executable='component_container',
+        output='screen',
         composable_node_descriptions=[
             ComposableNode(
                 package='serial_manager_pkg',
