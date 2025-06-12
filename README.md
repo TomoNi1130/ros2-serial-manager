@@ -24,7 +24,7 @@
 
 ```sh
 colcon build
-. [setup.bash](http://_vscodecontentref_/0)
+. install/setup.bash
 ros2 launch serial_manager_pkg serial_manager.launch.py
 # または
 ros2 run serial_manager_pkg serial_manager_node
