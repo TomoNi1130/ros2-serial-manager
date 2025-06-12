@@ -2,7 +2,7 @@
 
 このパッケージは、複数のマイコンを同時に管理するためのもの　　
 各マイコンはIDで管理されている。  
-`serial_msnager_test`https://github.com/TomoNi1130/serial_manager_test/blob/main/README.md と同時に使用する。
+`serial_msnager_test`https://github.com/TomoNi1130/serial_manager_test と同時に使用する。
 
 - `serial_manager_pkg::msg::SerialMsg` 型の `send_to_micro` トピックに送信されたデータは、対応したIDを持つマイコンに送られる。
 - 受信したデータは同型の `micro_data` トピックで共有される。
