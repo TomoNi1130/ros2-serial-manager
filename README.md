@@ -1,6 +1,6 @@
 # 仕様
 
-このパッケージは、複数のマイコンを同時に管理するためのもの　　
+このパッケージは、複数のマイコンを同時に管理するためのもの  
 各マイコンはIDで管理されている。  
 `serial_msnager_test`と同時に使用する。
 
@@ -16,17 +16,18 @@
 他のシリアル監視系ツールが動作していると通信品質が悪化します。  
 (例　VSCodeのシリアルモニター等)
 
-## 導入
+## 依存関係
 
-- boost/asio が必要。未インストールの場合は各自で導入してくれ。
+- boost/asio
 
 ## 起動方法
 
 ```sh
 colcon build
 . [setup.bash](http://_vscodecontentref_/0)
+# コンテナノードとして起動
 ros2 launch serial_manager_pkg serial_manager.launch.py
-# または
+# ノードとして起動
 ros2 run serial_manager_pkg serial_manager_node
 ```
 
