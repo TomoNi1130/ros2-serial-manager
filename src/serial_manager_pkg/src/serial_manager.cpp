@@ -3,13 +3,6 @@
 #include <rclcpp_components/register_node_macro.hpp>
 
 namespace serial_manager {
-
-float bytes_to_float(uint8_t *bytes) {
-  float value;
-  memcpy(&value, bytes, sizeof(float));
-  return value;
-}
-
 SerialPort::SerialPort(boost::asio::io_context &io, const std::string &port_name, rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger &logger) : serial(io), port_name(port_name), id(0), publisher_(publisher_), logger(logger) {
   send_msg_thread = std::thread([this]() { SerialPort::send_serial(); });
   heartbeat_thread = std::thread([this]() { SerialPort::heartbeat(); });
@@ -22,8 +15,10 @@ SerialPort::SerialPort(boost::asio::io_context &io, const std::string &port_name
 
 SerialPort::~SerialPort() {
   running_ = false;
-  if (send_msg_thread.joinable()) send_msg_thread.join();
-  if (heartbeat_thread.joinable()) heartbeat_thread.join();
+  if (send_msg_thread.joinable())
+    send_msg_thread.join();
+  if (heartbeat_thread.joinable())
+    heartbeat_thread.join();
   if (serial.is_open()) {
     serial.close();
   }
@@ -59,7 +54,9 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
           if (type_keeper == serial_manager::FLOAT_HEADER) {
             std::vector<float> results;
             for (size_t i = 0; i < decorded_data.size() / sizeof(float); i++) {
-              float result = bytes_to_float(&decorded_data[i * sizeof(float)]);
+              uint8_t raw[4] = {decorded_data[i * sizeof(float) + 0], decorded_data[i * sizeof(float) + 1], decorded_data[i * sizeof(float) + 2], decorded_data[i * sizeof(float) + 3]};
+              float result;
+              std::memcpy(&result, raw, sizeof(float));
               results.push_back(result);
             }
             if (id != 0) {
