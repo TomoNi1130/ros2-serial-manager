@@ -27,6 +27,7 @@ SerialPort::~SerialPort() {
 int SerialPort::get_id() { return id; }
 
 void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_t bytes_transferred) {
+  (void)bytes_transferred;
   if (!ec) {
     uint8_t buf = buffer[0];
     receive_bytes.push_back(buf);
@@ -68,10 +69,10 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
           } else if (type_keeper == serial_manager::BOOL_HAEDER) {
             std::vector<bool> results;
             for (size_t i = 0; i < decorded_data.size(); i++) {
-              if (decorded_data[i] == 0)
-                results.push_back(false);
-              else if (decorded_data[i] == 1)
+              if (decorded_data[i] == 0x01)
                 results.push_back(true);
+              else if (decorded_data[i] == 0x02)
+                results.push_back(false);
             }
             if (id != 0) {
               pub_msg_data_.msg_id = id;
@@ -99,10 +100,15 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
         }
         case SETUP: {
           if (decorded_data.size() == INTRODUCTION_BYTES.size() + 1) {
-            if (std::equal(INTRODUCTION_BYTES.begin(), INTRODUCTION_BYTES.end(), decorded_data.begin())) {
+            if (std::equal(INTRODUCTION_BYTES.begin(), INTRODUCTION_BYTES.end(), decorded_data.begin()) && decorded_data[0] != 0) {
               decorded_data.erase(decorded_data.begin(), decorded_data.begin() + INTRODUCTION_BYTES.size());  // 自己紹介用のデータを削除
-              id = decorded_data[0];                                                                          // IDを取得
-              RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
+              int pre_id = id;
+              id = decorded_data[0];  // IDを取得
+              if (id != 0) {
+                RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
+                state_ = STANBY;
+              } else
+                id = pre_id;
               state_ = STANBY;
             } else {
               RCLCPP_WARN(logger, "[ポート:%s%s%s]マイコンを再起動してください。受信データが規定の値と一致しません", green.c_str(), port_name.c_str(), reset.c_str());
