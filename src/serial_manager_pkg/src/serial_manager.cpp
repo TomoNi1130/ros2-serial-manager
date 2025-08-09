@@ -60,7 +60,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               std::memcpy(&result, raw, sizeof(float));
               results.push_back(result);
             }
-            if (id != 0) {
+            if (id != 0 && !results.empty()) {
               pub_msg_data_.msg_id = id;
               pub_msg_data_.numbers.clear();
               pub_msg_data_.numbers = results;
@@ -74,7 +74,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               else if (decorded_data[i] == 0x02)
                 results.push_back(false);
             }
-            if (id != 0) {
+            if (id != 0 && !results.empty()) {
               pub_msg_data_.msg_id = id;
               pub_msg_data_.flags.clear();
               pub_msg_data_.flags = results;
@@ -82,7 +82,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
             }
           } else if (type_keeper == serial_manager::LOG_HEADER) {
             std::string log_msg(decorded_data.begin(), decorded_data.end());
-            if (id != 0)
+            if (id != 0 && !log_msg.empty())
               RCLCPP_INFO(logger, "[ポート:%s%s%s ID:%s %d %s] log: %s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str(), log_msg.c_str());
           } else if (type_keeper == HEART_BEAT_HEADER) {
             if (decorded_data == HEARTBEAT_BYTES) {

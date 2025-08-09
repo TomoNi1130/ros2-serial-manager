@@ -5,9 +5,9 @@ from launch_ros.descriptions import ComposableNode
 
 def generate_launch_description():
 
-    run = ComposableNodeContainer(
+    manager = ComposableNodeContainer(
         name='serial_manager',
-        namespace='UC',
+        namespace='',
         package='rclcpp_components',
         executable='component_container',
         output='screen',
@@ -19,4 +19,29 @@ def generate_launch_description():
                 extra_arguments=[{'use_intra_process_comms': True}],
             ),
         ])
-    return LaunchDescription([run])
+    
+    listener = Node(
+        package='serial_user_pkg',
+        executable='serial_listener',
+        name='listener_node',
+        namespace='',
+        output='screen'
+    )
+
+    talker = Node(
+        package='serial_user_pkg',
+        executable='serial_talker',
+        name='talker_node',
+        namespace='',
+        output='screen'
+    )
+
+    joy = Node(
+        package='joy',
+        executable='joy_node',
+        name='joy_node',
+        namespace='',
+        output='screen'
+    )
+
+    return LaunchDescription([manager, listener, talker, joy])

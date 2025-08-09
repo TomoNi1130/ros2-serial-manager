@@ -3,7 +3,7 @@
 
 class SerialListener : public rclcpp::Node {
  public:
-  SerialListener() : Node("Serial_Listener") {
+  SerialListener() : Node("serial_listener") {
     subscription_ = this->create_subscription<serial_manager_pkg::msg::SerialMsg>("micro_data", 10, std::bind(&SerialListener::topic_callback, this, std::placeholders::_1));
   }
 
@@ -17,7 +17,7 @@ class SerialListener : public rclcpp::Node {
     RCLCPP_INFO(this->get_logger(), "nums : %s", msg_str.c_str());
     msg_str.clear();
     for (size_t i = 0; i < msg.flags.size(); i++) {
-      msg_str += " " + std::to_string(msg.flags[i]);
+      msg_str += std::string(" ") + (msg.flags[i] ? "1" : "0");
     }
     RCLCPP_INFO(this->get_logger(), "flags : %s", msg_str.c_str());
   }
