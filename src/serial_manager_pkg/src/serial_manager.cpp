@@ -76,7 +76,6 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
       switch (state_) {
         case CONNECT: {
           if (type_keeper == serial_manager::FLOAT_HEADER) {
-            // RCLCPP_INFO(logger, "%zu,%zu", receive_bytes.size(), sizeof(float));
             std::vector<float> results;
             for (size_t i = 0; i < decoded_data.size() / sizeof(float); i++) {
               uint8_t raw[4] = {decoded_data[i * sizeof(float) + 0], decoded_data[i * sizeof(float) + 1], decoded_data[i * sizeof(float) + 2], decoded_data[i * sizeof(float) + 3]};
@@ -95,7 +94,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
             for (size_t i = 0; i < decoded_data.size(); i++) {
               if (decoded_data[i] == 0x01)
                 results.push_back(true);
-              else if (decoded_data[i] == 0x02)
+              else if (decoded_data[i] == 0x00)
                 results.push_back(false);
             }
             if (id != 0 && !results.empty()) {
@@ -131,14 +130,15 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               if (id != 0) {
                 RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
                 state_ = STANBY;
-              } else
+              } else {
                 id = pre_id;
-              state_ = STANBY;
+                RCLCPP_INFO(logger, "[ポート:%s%s%s] IDは0以外にしてください", yellow.c_str(), port_name.c_str(), reset.c_str());
+              }
             } else {
-              RCLCPP_WARN(logger, "[ポート:%s%s%s]マイコンを再起動してください。受信データが規定の値と一致しません", green.c_str(), port_name.c_str(), reset.c_str());
+              RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません", yellow.c_str(), port_name.c_str(), reset.c_str());
             }
           } else {
-            RCLCPP_WARN(logger, "[ポート:%s%s%s]マイコンを再起動してください。受信データが規定の値と一致しません。", green.c_str(), port_name.c_str(), reset.c_str());
+            RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません。", yellow.c_str(), port_name.c_str(), reset.c_str());
           }
           break;
         }
@@ -185,8 +185,7 @@ void SerialPort::send_serial() {
           if (id != 0) {
             std::vector<uint8_t> recorl_msg = RECORL_BYTES;
             recorl_msg.push_back(uint8_t(id));
-            // RCLCPP_INFO(logger, "送るぜ STANBY");
-            // print_byte_vector(cobs_encode(recorl_msg));
+            RCLCPP_INFO(logger, "[ポート:%s%s%s] CONNECT", green.c_str(), port_name.c_str(), reset.c_str());
             boost::asio::write(serial, boost::asio::buffer(cobs_encode(recorl_msg)));
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
@@ -194,8 +193,7 @@ void SerialPort::send_serial() {
         }
         case SETUP: {
           boost::asio::write(serial, boost::asio::buffer(cobs_encode(INTRODUCTION_BYTES)));
-          // RCLCPP_INFO(logger, "送るぜ SETUP");
-          // print_byte_vector(cobs_encode(INTRODUCTION_BYTES));
+          RCLCPP_INFO(logger, "[ポート:%s%s%s] STANBY", green.c_str(), port_name.c_str(), reset.c_str());
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
           break;
         }
@@ -273,7 +271,7 @@ void SerialManager::topic_callback(const serial_manager_pkg::msg::SerialMsg &msg
   SendMsgData send_msg_data;
   for (std::string &port_name : port_names) {
     auto &it = serial_ports[port_name];
-    if (it && it->get_id() == msg.msg_id) {
+    if (it && it->get_id() == msg.msg_id && msg.msg_id != 0) {
       send_msg_data.float_data = msg.numbers;
       send_msg_data.bool_data = msg.flags;
       it->set_sendmsg(send_msg_data);

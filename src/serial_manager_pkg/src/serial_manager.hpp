@@ -66,7 +66,7 @@ class SerialPort {
   boost::asio::serial_port serial;
   std::string port_name;
   std::array<uint8_t, 1> buffer;
-  uint8_t id;  // 0はなし
+  uint8_t id = 0;  // 0はなし
 
   serial_manager_pkg::msg::SerialMsg pub_msg_data_;
 
