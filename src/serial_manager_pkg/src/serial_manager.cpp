@@ -53,6 +53,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
       switch (state_) {
         case CONNECT: {
           if (type_keeper == serial_manager::FLOAT_HEADER) {
+            // RCLCPP_INFO(logger, "%zu,%zu", receive_bytes.size(), sizeof(float));
             std::vector<float> results;
             for (size_t i = 0; i < decorded_data.size() / sizeof(float); i++) {
               uint8_t raw[4] = {decorded_data[i * sizeof(float) + 0], decorded_data[i * sizeof(float) + 1], decorded_data[i * sizeof(float) + 2], decorded_data[i * sizeof(float) + 3]};

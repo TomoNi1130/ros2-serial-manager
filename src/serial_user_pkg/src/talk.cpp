@@ -19,6 +19,11 @@ class SerialTalker : public rclcpp::Node {
       send_msg.flags.push_back(false);
     }
 
+    send_msg.numbers.push_back(msg.axes[1]);
+    send_msg.numbers.push_back(msg.axes[0]);
+    send_msg.numbers.push_back(msg.axes[3]);
+    send_msg.numbers.push_back(msg.axes[4]);
+
     send_msg.msg_id = 1;
     publisher_->publish(send_msg);
   }

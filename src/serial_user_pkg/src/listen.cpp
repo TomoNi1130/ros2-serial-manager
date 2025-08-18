@@ -9,7 +9,7 @@ class SerialListener : public rclcpp::Node {
 
  private:
   void topic_callback(const serial_manager_pkg::msg::SerialMsg& msg) {
-    RCLCPP_INFO(this->get_logger(), "from %d", msg.msg_id);
+    RCLCPP_INFO(this->get_logger(), "from %d size: n,%zu f,%zu", msg.msg_id, msg.numbers.size(), msg.flags.size());
     std::string msg_str = "";
     for (size_t i = 0; i < msg.numbers.size(); i++) {
       msg_str += " " + std::to_string(msg.numbers[i]);
