@@ -6,7 +6,7 @@ from launch_ros.descriptions import ComposableNode
 def generate_launch_description():
 
     manager = ComposableNodeContainer(
-        name='serial_manager',
+        name='serial_manager_container',
         namespace='',
         package='rclcpp_components',
         executable='component_container',

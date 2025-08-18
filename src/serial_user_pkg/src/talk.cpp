@@ -13,11 +13,8 @@ class SerialTalker : public rclcpp::Node {
   void joy_callback(const sensor_msgs::msg::Joy& msg) {
     serial_manager_pkg::msg::SerialMsg send_msg;
 
-    if (msg.buttons[2] == true) {
-      send_msg.flags.push_back(true);
-    } else {
-      send_msg.flags.push_back(false);
-    }
+    for (bool i : msg.buttons)
+      send_msg.flags.push_back(i);
 
     send_msg.numbers.push_back(msg.axes[1]);
     send_msg.numbers.push_back(msg.axes[0]);
