@@ -23,7 +23,7 @@ const uint8_t BOOL_HAEDER = 0x02;
 const uint8_t LOG_HEADER = 0x09;
 const uint8_t HEART_BEAT_HEADER = 0x77;
 const std::vector<uint8_t> START_COM_BYTES = {0xff};                 // マイコンとの通信開始信号
-const std::vector<uint8_t> INTRODUCTION_BYTES = {0x12, 0x34, 0x56};  // 自己紹介用データセット
+const std::vector<uint8_t> INTRODUCTION_BYTES = {0x12, 0x00, 0x56};  // 自己紹介用データセット
 const std::vector<uint8_t> RECORL_BYTES = {0x56, 0x34, 0x12};        // 返信用データセット
 const std::vector<uint8_t> HEARTBEAT_BYTES = {0xaa, 0xbb, 0xcc};     // ハートビート用のバイト列
 
@@ -70,7 +70,7 @@ class SerialPort {
 
   serial_manager_pkg::msg::SerialMsg pub_msg_data_;
 
-  std::vector<uint8_t> decorded_data;
+  std::vector<uint8_t> decoded_data;
   std::vector<uint8_t> receive_bytes;
   SendMsgData send_msg;
   rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_;
@@ -141,32 +141,37 @@ std::vector<uint8_t> SerialPort::make_msg(const std::vector<T>& input) {
 template <typename T>
 std::vector<uint8_t> SerialPort::cobs_encode(const std::vector<T>& input) {
   std::vector<uint8_t> encoded;
-  encoded.push_back(0x00);
-  uint8_t count = 0;
-  int mark = 0;
+  encoded.push_back(0x00);  // プレースホルダ
+  size_t mark = 0;
+  uint8_t count = 1;  // code byteは1から始まる
+
   for (size_t i = 0; i < input.size(); ++i) {
     const uint8_t* raw = reinterpret_cast<const uint8_t*>(&input[i]);
+
     for (size_t j = 0; j < sizeof(T); ++j) {
-      if (raw[j] != 0x00) {
+      if (raw[j] == 0x00) {
+        encoded[mark] = count;
+        mark = encoded.size();
+        encoded.push_back(0x00);  // 新しいブロックのプレースホルダ
+        count = 1;
+      } else {
         encoded.push_back(raw[j]);
-        count++;
-        if (count == 0xff) {
+        ++count;
+
+        if (count == 0xFF) {
           encoded[mark] = count;
           mark = encoded.size();
-          encoded.push_back(0x00);
-          count = 0;
+          encoded.push_back(0x00);  // 新しいブロック
+          count = 1;
         }
-      } else {
-        encoded[mark] = count + 1;
-        mark = encoded.size();
-        encoded.push_back(0x00);
-        count = 0;
       }
     }
   }
-  count++;
+
+  // 最後のブロック処理
   encoded[mark] = count;
-  encoded.push_back(0x00);
+  encoded.push_back(0x00);  // 終端用
+
   return encoded;
 }
 

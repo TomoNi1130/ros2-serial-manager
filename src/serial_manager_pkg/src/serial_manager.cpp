@@ -26,6 +26,33 @@ SerialPort::~SerialPort() {
 
 int SerialPort::get_id() { return id; }
 
+void print_byte_vector(const std::vector<boost::asio::detail::buffered_stream_storage::byte_type> &data) {
+  for (const auto &byte : data) {
+    std::cout << std::hex                // 16進数で出力
+              << std::setw(2)            // 桁数を2桁に揃える
+              << std::setfill('0')       // 1桁のときは0埋め
+              << static_cast<int>(byte)  // byteは符号なし1バイトだがintに変換して表示
+              << " ";
+  }
+  std::cout << std::dec << std::endl;  // 出力形式を10進数に戻す
+}
+
+std::vector<uint8_t> cobs_decode(const std::vector<uint8_t> &input) {
+  std::vector<uint8_t> decoded_data;
+  uint8_t OBH;  // ゼロが出るまでの数
+  OBH = input[0];
+  for (uint8_t i = 1; i < input.size(); i++) {
+    if (i == OBH) {
+      OBH = input[i] + OBH;
+      decoded_data.push_back(0x00);
+    } else {
+      decoded_data.push_back(input[i]);
+    }
+  }
+  decoded_data.pop_back();
+  return decoded_data;
+}
+
 void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_t bytes_transferred) {
   (void)bytes_transferred;
   if (!ec) {
@@ -33,30 +60,26 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
     receive_bytes.push_back(buf);
 
     if (buf == 0x00) {
+      // RCLCPP_INFO(logger, "来たぜ");
+      // print_byte_vector(receive_bytes);
       uint8_t type_keeper = 0;
       if (state_ == CONNECT) {
         type_keeper = receive_bytes[0];  // 型識別用のデータ
         receive_bytes.erase(receive_bytes.begin());
       }
-      uint8_t OBH;  // ゼロが出るまでの数
-      OBH = receive_bytes[0];
-      for (uint8_t i = 1; i < receive_bytes.size(); i++) {
-        if (i == OBH) {
-          OBH = receive_bytes[i] + OBH;
-        } else {
-          decorded_data.push_back(receive_bytes[i]);
-        }
-      }
-      // デコード完了
+      decoded_data = cobs_decode(receive_bytes);
+      // RCLCPP_INFO(logger, "来たぜ");
+      // print_byte_vector(decoded_data);
+      // // デコード完了
 
-      // 処理部
+      // // 処理部
       switch (state_) {
         case CONNECT: {
           if (type_keeper == serial_manager::FLOAT_HEADER) {
             // RCLCPP_INFO(logger, "%zu,%zu", receive_bytes.size(), sizeof(float));
             std::vector<float> results;
-            for (size_t i = 0; i < decorded_data.size() / sizeof(float); i++) {
-              uint8_t raw[4] = {decorded_data[i * sizeof(float) + 0], decorded_data[i * sizeof(float) + 1], decorded_data[i * sizeof(float) + 2], decorded_data[i * sizeof(float) + 3]};
+            for (size_t i = 0; i < decoded_data.size() / sizeof(float); i++) {
+              uint8_t raw[4] = {decoded_data[i * sizeof(float) + 0], decoded_data[i * sizeof(float) + 1], decoded_data[i * sizeof(float) + 2], decoded_data[i * sizeof(float) + 3]};
               float result;
               std::memcpy(&result, raw, sizeof(float));
               results.push_back(result);
@@ -69,10 +92,10 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
             }
           } else if (type_keeper == serial_manager::BOOL_HAEDER) {
             std::vector<bool> results;
-            for (size_t i = 0; i < decorded_data.size(); i++) {
-              if (decorded_data[i] == 0x01)
+            for (size_t i = 0; i < decoded_data.size(); i++) {
+              if (decoded_data[i] == 0x01)
                 results.push_back(true);
-              else if (decorded_data[i] == 0x02)
+              else if (decoded_data[i] == 0x02)
                 results.push_back(false);
             }
             if (id != 0 && !results.empty()) {
@@ -82,29 +105,29 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               publisher_->publish(pub_msg_data_);
             }
           } else if (type_keeper == serial_manager::LOG_HEADER) {
-            std::string log_msg(decorded_data.begin(), decorded_data.end());
+            std::string log_msg(decoded_data.begin(), decoded_data.end());
             if (id != 0 && !log_msg.empty())
               RCLCPP_INFO(logger, "[ポート:%s%s%s ID:%s %d %s] log: %s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str(), log_msg.c_str());
           } else if (type_keeper == HEART_BEAT_HEADER) {
-            if (decorded_data == HEARTBEAT_BYTES) {
+            if (decoded_data == HEARTBEAT_BYTES) {
               last_heartbeat_time = clock.now();
             }
           }
           break;
         }
         case STANBY: {
-          if (decorded_data == START_COM_BYTES) {  // マイコンからの開始信号を受信
+          if (decoded_data == START_COM_BYTES) {  // マイコンからの開始信号を受信
             state_ = CONNECT;
             RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンとの通信を開始しました。", green.c_str(), port_name.c_str(), reset.c_str());
           }
           break;
         }
         case SETUP: {
-          if (decorded_data.size() == INTRODUCTION_BYTES.size() + 1) {
-            if (std::equal(INTRODUCTION_BYTES.begin(), INTRODUCTION_BYTES.end(), decorded_data.begin()) && decorded_data[0] != 0) {
-              decorded_data.erase(decorded_data.begin(), decorded_data.begin() + INTRODUCTION_BYTES.size());  // 自己紹介用のデータを削除
+          if (decoded_data.size() == INTRODUCTION_BYTES.size() + 1) {
+            if (std::equal(INTRODUCTION_BYTES.begin(), INTRODUCTION_BYTES.end(), decoded_data.begin())) {
+              decoded_data.erase(decoded_data.begin(), decoded_data.begin() + INTRODUCTION_BYTES.size());  // 自己紹介用のデータを削除
               int pre_id = id;
-              id = decorded_data[0];  // IDを取得
+              id = decoded_data[0];  // IDを取得
               if (id != 0) {
                 RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
                 state_ = STANBY;
@@ -123,7 +146,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
           break;
       }
       receive_bytes.clear();
-      decorded_data.clear();
+      decoded_data.clear();
     }
   } else {
     RCLCPP_ERROR(logger, "Serial error: %s", ec.message().c_str());
@@ -146,14 +169,14 @@ void SerialPort::send_serial() {
           if (!send_msg.float_data.empty()) {
             send_msg_bytes = make_msg(send_msg.float_data);
             boost::asio::write(serial, boost::asio::buffer(send_msg_bytes));
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             send_msg.float_data.clear();
           }
           send_msg_bytes.clear();
           if (!send_msg.bool_data.empty()) {
             send_msg_bytes = make_msg(send_msg.bool_data);
             boost::asio::write(serial, boost::asio::buffer(send_msg_bytes));
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             send_msg.bool_data.clear();
           }
           break;
@@ -161,15 +184,19 @@ void SerialPort::send_serial() {
         case STANBY: {
           if (id != 0) {
             std::vector<uint8_t> recorl_msg = RECORL_BYTES;
-            recorl_msg.push_back(id);
+            recorl_msg.push_back(uint8_t(id));
+            // RCLCPP_INFO(logger, "送るぜ STANBY");
+            // print_byte_vector(cobs_encode(recorl_msg));
             boost::asio::write(serial, boost::asio::buffer(cobs_encode(recorl_msg)));
-            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(cobs_encode(recorl_msg).size() * WaitTimePerByte_)));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
           break;
         }
         case SETUP: {
           boost::asio::write(serial, boost::asio::buffer(cobs_encode(INTRODUCTION_BYTES)));
-          std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(cobs_encode(INTRODUCTION_BYTES).size() * WaitTimePerByte_)));
+          // RCLCPP_INFO(logger, "送るぜ SETUP");
+          // print_byte_vector(cobs_encode(INTRODUCTION_BYTES));
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
           break;
         }
         default:

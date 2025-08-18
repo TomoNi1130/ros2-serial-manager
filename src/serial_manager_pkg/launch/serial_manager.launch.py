@@ -18,14 +18,15 @@ def generate_launch_description():
                 name='serial_manager',
                 extra_arguments=[{'use_intra_process_comms': True}],
             ),
-        ])
+        ]
+    )
     
     listener = Node(
         package='serial_user_pkg',
         executable='serial_listener',
         name='listener_node',
         namespace='',
-        output='screen'
+        output='screen',
     )
 
     talker = Node(
@@ -33,7 +34,7 @@ def generate_launch_description():
         executable='serial_talker',
         name='talker_node',
         namespace='',
-        output='screen'
+        output='screen',
     )
 
     joy = Node(
@@ -41,7 +42,7 @@ def generate_launch_description():
         executable='joy_node',
         name='joy_node',
         namespace='',
-        output='screen'
+        output='screen',
     )
 
     return LaunchDescription([manager, listener, talker, joy])
