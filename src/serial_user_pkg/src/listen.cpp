@@ -17,7 +17,7 @@ class SerialListener : public rclcpp::Node {
     RCLCPP_INFO(this->get_logger(), "nums : %s", msg_str.c_str());
     msg_str.clear();
     for (size_t i = 0; i < msg.flags.size(); i++) {
-      msg_str += std::string(" ") + (msg.flags[i] ? "1" : "0");
+      msg_str += std::string(" ") + (msg.flags[i] ? "true" : "false");
     }
     RCLCPP_INFO(this->get_logger(), "flags : %s", msg_str.c_str());
   }

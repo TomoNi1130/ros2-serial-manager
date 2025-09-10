@@ -10,7 +10,7 @@ SerialPort::SerialPort(boost::asio::io_context &io, const std::string &port_name
   serial = boost::asio::serial_port(io, port_name);
   serial.set_option(boost::asio::serial_port_base::baud_rate(115200));
   serial.async_read_some(boost::asio::buffer(buffer, 1), [this](const boost::system::error_code &error, size_t bytes_transferred) { this->serial_callback(error, bytes_transferred); });
-  RCLCPP_INFO(logger, "%s%s%s setup", green.c_str(), port_name.c_str(), reset.c_str());
+  RCLCPP_INFO(logger, "[ポート:%s%s%s] セットアップ完了", green.c_str(), port_name.c_str(), reset.c_str());
 }
 
 SerialPort::~SerialPort() {
@@ -68,7 +68,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               std::memcpy(&result, raw, sizeof(float));
               results.push_back(result);
             }
-            if (id != 0 && !results.empty()) {
+            if (!results.empty()) {
               pub_msg_data_.msg_id = id;
               pub_msg_data_.numbers.clear();
               pub_msg_data_.numbers = results;
@@ -82,7 +82,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               else if (decoded_data[i] == 0x00)
                 results.push_back(false);
             }
-            if (id != 0 && !results.empty()) {
+            if (!results.empty()) {
               pub_msg_data_.msg_id = id;
               pub_msg_data_.flags.clear();
               pub_msg_data_.flags = results;
@@ -90,7 +90,7 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
             }
           } else if (type_keeper == serial_manager::LOG_HEADER) {
             std::string log_msg(decoded_data.begin(), decoded_data.end());
-            if (id != 0 && !log_msg.empty())
+            if (!log_msg.empty())
               RCLCPP_INFO(logger, "[ポート:%s%s%s ID:%s %d %s] log: %s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str(), log_msg.c_str());
           } else if (type_keeper == HEART_BEAT_HEADER) {
             if (decoded_data == HEARTBEAT_BYTES) {
@@ -103,6 +103,8 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
           if (decoded_data == START_COM_BYTES) {  // マイコンからの開始信号を受信
             state_ = CONNECT;
             RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンとの通信を開始しました。", green.c_str(), port_name.c_str(), reset.c_str());
+          } else {
+            RCLCPP_WARN(logger, "[ポート:%s%s%s] マイコンとの通信を開始できません。", green.c_str(), port_name.c_str(), reset.c_str());
           }
           break;
         }
@@ -112,18 +114,15 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               decoded_data.erase(decoded_data.begin(), decoded_data.begin() + INTRODUCTION_BYTES.size());  // 自己紹介用のデータを削除
               int pre_id = id;
               id = decoded_data[0];  // IDを取得
-              if (id != 0) {
-                RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
-                state_ = STANBY;
-              } else {
-                id = pre_id;
-                RCLCPP_INFO(logger, "[ポート:%s%s%s] IDは0以外にしてください", yellow.c_str(), port_name.c_str(), reset.c_str());
-              }
+              RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
+              state_ = STANBY;
+              id = pre_id;
+              RCLCPP_INFO(logger, "[ポート:%s%s%s] IDは0以外にしてください", yellow.c_str(), port_name.c_str(), reset.c_str());
             } else {
-              RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません", yellow.c_str(), port_name.c_str(), reset.c_str());
+              // RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません", yellow.c_str(), port_name.c_str(), reset.c_str());
             }
           } else {
-            RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません。", yellow.c_str(), port_name.c_str(), reset.c_str());
+            // RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません。", yellow.c_str(), port_name.c_str(), reset.c_str());
           }
           break;
         }
@@ -167,16 +166,16 @@ void SerialPort::send_serial() {
           break;
         }
         case STANBY: {
-          if (id != 0) {
-            std::vector<uint8_t> recorl_msg = RECORL_BYTES;
-            recorl_msg.push_back(uint8_t(id));
-            boost::asio::write(serial, boost::asio::buffer(cobs_encode(recorl_msg)));
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          }
+          std::vector<uint8_t> recorl_msg = RECORL_BYTES;
+          recorl_msg.push_back(uint8_t(id));
+          boost::asio::write(serial, boost::asio::buffer(cobs_encode(recorl_msg)));
+          RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDの再確認中...", green.c_str(), port_name.c_str(), reset.c_str());
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
           break;
         }
         case SETUP: {
           boost::asio::write(serial, boost::asio::buffer(cobs_encode(INTRODUCTION_BYTES)));
+          RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDを探索中...", green.c_str(), port_name.c_str(), reset.c_str());
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
           break;
         }
@@ -196,7 +195,7 @@ void SerialPort::heartbeat() {
     std::vector<uint8_t> heartbeat_msg;
     now = clock.now();
     if (now - last_heartbeat_time > rclcpp::Duration::from_seconds(0.5)) {
-      RCLCPP_INFO(logger, "[ポート:%s%s%s] RESET", green.c_str(), port_name.c_str(), reset.c_str());
+      RCLCPP_INFO(logger, "[ポート:%s%s%s] 接続が途絶えました。再接続を試みます", green.c_str(), port_name.c_str(), reset.c_str());
       state_ = SETUP;
     }
     if (serial.is_open()) {
@@ -253,7 +252,7 @@ void SerialManager::topic_callback(const serial_manager_pkg::msg::SerialMsg &msg
   SendMsgData send_msg_data;
   for (std::string &port_name : port_names) {
     auto &it = serial_ports[port_name];
-    if (it && it->get_id() == msg.msg_id && msg.msg_id != 0) {
+    if (it && it->get_id() == msg.msg_id || it && it->get_id() == 0) {
       send_msg_data.float_data = msg.numbers;
       send_msg_data.bool_data = msg.flags;
       it->set_sendmsg(send_msg_data);
