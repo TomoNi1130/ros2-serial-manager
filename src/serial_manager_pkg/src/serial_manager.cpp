@@ -26,17 +26,6 @@ SerialPort::~SerialPort() {
 
 int SerialPort::get_id() { return id; }
 
-void print_byte_vector(const std::vector<boost::asio::detail::buffered_stream_storage::byte_type> &data) {
-  for (const auto &byte : data) {
-    std::cout << std::hex                // 16進数で出力
-              << std::setw(2)            // 桁数を2桁に揃える
-              << std::setfill('0')       // 1桁のときは0埋め
-              << static_cast<int>(byte)  // byteは符号なし1バイトだがintに変換して表示
-              << " ";
-  }
-  std::cout << std::dec << std::endl;  // 出力形式を10進数に戻す
-}
-
 std::vector<uint8_t> cobs_decode(const std::vector<uint8_t> &input) {
   std::vector<uint8_t> decoded_data;
   uint8_t OBH;  // ゼロが出るまでの数
@@ -60,16 +49,12 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
     receive_bytes.push_back(buf);
 
     if (buf == 0x00) {
-      // RCLCPP_INFO(logger, "来たぜ");
-      // print_byte_vector(receive_bytes);
       uint8_t type_keeper = 0;
       if (state_ == CONNECT) {
         type_keeper = receive_bytes[0];  // 型識別用のデータ
         receive_bytes.erase(receive_bytes.begin());
       }
       decoded_data = cobs_decode(receive_bytes);
-      // RCLCPP_INFO(logger, "来たぜ");
-      // print_byte_vector(decoded_data);
       // // デコード完了
 
       // // 処理部
@@ -185,7 +170,6 @@ void SerialPort::send_serial() {
           if (id != 0) {
             std::vector<uint8_t> recorl_msg = RECORL_BYTES;
             recorl_msg.push_back(uint8_t(id));
-            RCLCPP_INFO(logger, "[ポート:%s%s%s] CONNECT", green.c_str(), port_name.c_str(), reset.c_str());
             boost::asio::write(serial, boost::asio::buffer(cobs_encode(recorl_msg)));
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
@@ -193,7 +177,6 @@ void SerialPort::send_serial() {
         }
         case SETUP: {
           boost::asio::write(serial, boost::asio::buffer(cobs_encode(INTRODUCTION_BYTES)));
-          RCLCPP_INFO(logger, "[ポート:%s%s%s] STANBY", green.c_str(), port_name.c_str(), reset.c_str());
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
           break;
         }
@@ -241,7 +224,6 @@ SerialManager::SerialManager(const rclcpp::NodeOptions &options) : rclcpp::Node(
       }
     }
     io_thread_ = std::thread([this]() { io.run(); });
-    RCLCPP_INFO(this->get_logger(), "setup!!");
   } else {
     RCLCPP_ERROR(this->get_logger(), "%sポートが接続されてないやんけ!%s", red.c_str(), reset.c_str());
     rclcpp::shutdown();

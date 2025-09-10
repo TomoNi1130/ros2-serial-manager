@@ -23,6 +23,10 @@ class SerialTalker : public rclcpp::Node {
 
     send_msg.msg_id = 1;
     publisher_->publish(send_msg);
+    send_msg.msg_id = 2;
+    publisher_->publish(send_msg);
+    send_msg.msg_id = 3;
+    publisher_->publish(send_msg);
   }
 
   bool pre_up = false;
