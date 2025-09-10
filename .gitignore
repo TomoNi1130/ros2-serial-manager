@@ -1,7 +1,3 @@
-/.vscode
-/build
-/install
-/log
-/src/drive_controller_pkg
-/src/ros2_controller_pkg
-/src/interface
+/*
+!/src/serial_manager_pkg
+!/src/serial_user_pkg

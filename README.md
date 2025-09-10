@@ -46,6 +46,6 @@ bool[] flags
 uint8 msg_id
 ```
 
-numbersにはstd::vector<double>、flagsにはstd::vector<bool>が入る。
+numbersにはstd::vectorのdouble、flagsにはstd::vectorのboolが入る。
 
 msg_idには整数が入り、同じIDのマイコンにのみメッセージが送られる。0の場合は接続中の全マイコンにメッセージを送る。
