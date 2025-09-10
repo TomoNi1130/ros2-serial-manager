@@ -40,10 +40,11 @@ ros2 run serial_manager_pkg serial_manager_node
 
 ## serial_manager_pkg::msg::SerialMsgについて
 
-//中身
+```sh
 float32[] numbers
 bool[] flags
 uint8 msg_id
+```
 
 numbersにはstd::vector<double>、flagsにはstd::vector<bool>が入る。
 
