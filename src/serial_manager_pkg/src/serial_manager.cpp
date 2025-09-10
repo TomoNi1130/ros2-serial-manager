@@ -116,8 +116,6 @@ void SerialPort::serial_callback(const boost::system::error_code &ec, std::size_
               id = decoded_data[0];  // IDを取得
               RCLCPP_INFO(logger, "[ポート:%s%s%s] マイコンIDをセット -> %s%d%s", green.c_str(), port_name.c_str(), reset.c_str(), green.c_str(), id, reset.c_str());
               state_ = STANBY;
-              id = pre_id;
-              RCLCPP_INFO(logger, "[ポート:%s%s%s] IDは0以外にしてください", yellow.c_str(), port_name.c_str(), reset.c_str());
             } else {
               // RCLCPP_WARN(logger, "[ポート:%s%s%s]受信データが規定の値と一致しません", yellow.c_str(), port_name.c_str(), reset.c_str());
             }

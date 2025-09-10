@@ -36,4 +36,15 @@ ros2 run serial_manager_pkg serial_manager_node
 1. マイコンと接続する
 2. ノードを起動する
 3. `send_to_micro` トピックに `serial_manager_pkg::msg::SerialMsg` を送信する
-4. `micro_data` トピックを同型でサブスクライブする
+4. `micro_data` トピックを上記同型でサブスクライブする
+
+## serial_manager_pkg::msg::SerialMsgについて
+
+//中身
+float32[] numbers
+bool[] flags
+uint8 msg_id
+
+numbersにはstd::vector<double>、flagsにはstd::vector<bool>が入る。
+
+msg_idには整数が入り、同じIDのマイコンにのみメッセージが送られる。0の場合は接続中の全マイコンにメッセージを送る。
