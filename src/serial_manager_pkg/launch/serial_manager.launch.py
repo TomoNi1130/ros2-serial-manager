@@ -45,4 +45,9 @@ def generate_launch_description():
         output='screen',
     )
 
-    return LaunchDescription([manager, listener, talker, joy])
+    return LaunchDescription([
+        manager,
+        listener,
+        talker,
+        joy
+    ])

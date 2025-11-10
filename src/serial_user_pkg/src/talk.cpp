@@ -19,8 +19,8 @@ class SerialTalker : public rclcpp::Node {
 
     send_msg.numbers.push_back(msg.axes[1]);
     send_msg.numbers.push_back(msg.axes[0]);
-    send_msg.numbers.push_back(msg.axes[3]);
     send_msg.numbers.push_back(msg.axes[4]);
+    send_msg.numbers.push_back(msg.axes[3]);
 
     send_msg.msg_id = 1;
     publisher_->publish(send_msg);
@@ -43,7 +43,7 @@ class SerialTalker : public rclcpp::Node {
 
     send_msg.msg_id = 0;  // 0はブロードキャスト
     publisher_->publish(send_msg);
-    RCLCPP_INFO(this->get_logger(), "送ったぜ");
+    RCLCPP_DEBUG(this->get_logger(), "送ったぜ");
   }
 
   bool pre_up = false;
