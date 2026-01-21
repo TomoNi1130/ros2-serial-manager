@@ -1,15 +1,19 @@
 #ifndef COBS_SERIAL_MANAGER_HPP
 #define COBS_SERIAL_MANAGER_HPP
 
+#include "rclcpp/rclcpp.hpp"
+#include "serial_manager_pkg/msg/serial_msg.hpp"
+
 #include <boost/asio.hpp>
+
+#include <atomic>
+#include <condition_variable>
 #include <filesystem>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <type_traits>
 #include <vector>
-
-#include "rclcpp/rclcpp.hpp"
-#include "serial_manager_pkg/msg/serial_msg.hpp"
 
 namespace serial_manager {
 
@@ -22,57 +26,61 @@ const uint8_t FLOAT_HEADER = 0x01;
 const uint8_t BOOL_HAEDER = 0x02;
 const uint8_t LOG_HEADER = 0x09;
 const uint8_t HEART_BEAT_HEADER = 0x77;
-const std::vector<uint8_t> START_COM_BYTES = {0xff};                 // マイコンとの通信開始信号
-const std::vector<uint8_t> INTRODUCTION_BYTES = {0x12, 0x00, 0x56};  // 自己紹介用データセット
-const std::vector<uint8_t> RECORL_BYTES = {0x56, 0x34, 0x12};        // 返信用データセット
-const std::vector<uint8_t> HEARTBEAT_BYTES = {0xaa, 0xbb, 0xcc};     // ハートビート用のバイト列
+const std::vector<uint8_t> START_COM_BYTES = {0xff};
+const std::vector<uint8_t> INTRODUCTION_BYTES = {0x12, 0x00, 0x56};
+const std::vector<uint8_t> RECORL_BYTES = {0x56, 0x34, 0x12};
+const std::vector<uint8_t> HEARTBEAT_BYTES = {0xaa, 0xbb, 0xcc};
 
 struct SendMsgData {
   std::vector<float> float_data;
   std::vector<bool> bool_data;
-  void clear() {
-    float_data.clear();
-    bool_data.clear();
+  void clear () {
+    float_data.clear ();
+    bool_data.clear ();
   }
 };
 
 class SerialPort {
  public:
-  SerialPort(boost::asio::io_context& io, const std::string& port_name, rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger& logger);
-  ~SerialPort();
-  void set_sendmsg(const std::vector<uint8_t>& send_bytes);
-  void set_sendmsg(const SendMsgData& send_bytes);
-  int get_id();
+  SerialPort (boost::asio::io_context &io, const std::string &port_name, rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_, const rclcpp::Logger &logger);
+  ~SerialPort ();
+  void set_sendmsg (const std::vector<uint8_t> &send_bytes);
+  void set_sendmsg (const SendMsgData &send_bytes);
+  int get_id ();
+  void shutdown ();  // 追加: 安全なシャットダウン
 
  private:
-  void serial_callback(const boost::system::error_code& ec, std::size_t bytes_transferred);
-  void send_serial();
-  void heartbeat();
+  void serial_callback (const boost::system::error_code &ec, std::size_t bytes_transferred);
+  void send_serial ();
+  void heartbeat ();
   template <typename T>
-  std::vector<uint8_t> make_msg(const std::vector<T>& input);
+  std::vector<uint8_t> make_msg (const std::vector<T> &input);
   template <typename T>
-  std::vector<uint8_t> cobs_encode(const std::vector<T>& input);
+  std::vector<uint8_t> cobs_encode (const std::vector<T> &input);
 
   enum State {
-    SETUP,    // 初期化中、マイコンへ存在を通知する
-    STANBY,   // 接続待機状態、マイコンIDを待つ
-    CONNECT,  // 通信状態、通信可能
+    SETUP,
+    STANBY,
+    CONNECT,
   };
 
-  const double WaitTimePerByte_ = 0.1;  // ms
+  const double WaitTimePerByte_ = 0.1;
 
   State state_;
+  std::atomic<State> atomic_state_;  // 追加: アトミックな状態管理
 
   boost::asio::serial_port serial;
   std::string port_name;
   std::array<uint8_t, 1> buffer;
-  uint8_t id = 0;  // 0はなし
+  uint8_t id = 0;
 
   serial_manager_pkg::msg::SerialMsg pub_msg_data_;
 
   std::vector<uint8_t> decoded_data;
   std::vector<uint8_t> receive_bytes;
   SendMsgData send_msg;
+  std::mutex send_msg_mutex_;  // 追加: 送信メッセージの保護
+
   rclcpp::Publisher<serial_manager_pkg::msg::SerialMsg>::SharedPtr publisher_;
   rclcpp::Logger logger;
 
@@ -83,17 +91,19 @@ class SerialPort {
   std::thread send_msg_thread;
   std::thread heartbeat_thread;
 
-  bool running_ = true;  // スレッドの実行状態を管理
+  std::atomic<bool> running_;   // 変更: atomicに
+  std::condition_variable cv_;  // 追加: スレッド通知用
+  std::mutex cv_mutex_;         // 追加: condition_variable用
 };
 
 class SerialManager : public rclcpp::Node {
  public:
-  SerialManager(const rclcpp::NodeOptions& options);
-  ~SerialManager();
+  SerialManager (const rclcpp::NodeOptions &options);
+  ~SerialManager ();
 
  private:
-  void topic_callback(const serial_manager_pkg::msg::SerialMsg& msg);
-  std::vector<std::string> find_serial_port();
+  void topic_callback (const serial_manager_pkg::msg::SerialMsg &msg);
+  std::vector<std::string> find_serial_port ();
 
   boost::asio::io_context io;
   std::thread io_thread_;
@@ -106,71 +116,70 @@ class SerialManager : public rclcpp::Node {
 };
 
 template <typename T>
-std::vector<uint8_t> SerialPort::make_msg(const std::vector<T>& input) {
+std::vector<uint8_t> SerialPort::make_msg (const std::vector<T> &input) {
   std::vector<uint8_t> encoded;
   if constexpr (std::is_same_v<T, float>) {
-    encoded.push_back(FLOAT_HEADER);
-    std::vector<uint8_t> encoded_data = cobs_encode(input);
-    encoded.insert(encoded.end(), encoded_data.begin(), encoded_data.end());
+    encoded.push_back (FLOAT_HEADER);
+    std::vector<uint8_t> encoded_data = cobs_encode (input);
+    encoded.insert (encoded.end (), encoded_data.begin (), encoded_data.end ());
     return encoded;
   } else if constexpr (std::is_same_v<T, double>) {
-    std::vector<float> float_input(input.begin(), input.end());
-    encoded.push_back(FLOAT_HEADER);
-    std::vector<uint8_t> encoded_data = cobs_encode(float_input);
-    encoded.insert(encoded.end(), encoded_data.begin(), encoded_data.end());
+    std::vector<float> float_input (input.begin (), input.end ());
+    encoded.push_back (FLOAT_HEADER);
+    std::vector<uint8_t> encoded_data = cobs_encode (float_input);
+    encoded.insert (encoded.end (), encoded_data.begin (), encoded_data.end ());
     return encoded;
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    encoded.push_back(BOOL_HAEDER);
-    std::vector<uint8_t> encoded_data = cobs_encode(input);
-    encoded.insert(encoded.end(), encoded_data.begin(), encoded_data.end());
+    encoded.push_back (BOOL_HAEDER);
+    std::vector<uint8_t> encoded_data = cobs_encode (input);
+    encoded.insert (encoded.end (), encoded_data.begin (), encoded_data.end ());
     return encoded;
   } else if constexpr (std::is_same_v<T, bool>) {
-    encoded.push_back(BOOL_HAEDER);
-    std::vector<uint8_t> bool_bytes(input.begin(), input.end());
-    std::vector<uint8_t> encoded_data = cobs_encode(bool_bytes);
-    encoded.insert(encoded.end(), encoded_data.begin(), encoded_data.end());
+    encoded.push_back (BOOL_HAEDER);
+    std::vector<uint8_t> bool_bytes (input.begin (), input.end ());
+    std::vector<uint8_t> encoded_data = cobs_encode (bool_bytes);
+    encoded.insert (encoded.end (), encoded_data.begin (), encoded_data.end ());
     return encoded;
   } else {
-    encoded.push_back(0xff);
-    std::vector<uint8_t> encoded_data = cobs_encode(input);
-    encoded.insert(encoded.end(), encoded_data.begin(), encoded_data.end());
+    encoded.push_back (0xff);
+    std::vector<uint8_t> encoded_data = cobs_encode (input);
+    encoded.insert (encoded.end (), encoded_data.begin (), encoded_data.end ());
     return encoded;
   }
 }
 
 template <typename T>
-std::vector<uint8_t> SerialPort::cobs_encode(const std::vector<T>& input) {
+std::vector<uint8_t> SerialPort::cobs_encode (const std::vector<T> &input) {
   std::vector<uint8_t> encoded;
-  encoded.push_back(0x00);  // プレースホルダ
+  encoded.push_back (0x00);
   size_t mark = 0;
-  uint8_t count = 1;  // code byteは1から始まる
+  uint8_t count = 1;
 
-  for (size_t i = 0; i < input.size(); ++i) {
-    const uint8_t* raw = reinterpret_cast<const uint8_t*>(&input[i]);
+  for (size_t i = 0; i < input.size (); ++i) {
+    const uint8_t *raw = reinterpret_cast<const uint8_t *> (&input[i]);
 
-    for (size_t j = 0; j < sizeof(T); ++j) {
+    for (size_t j = 0; j < sizeof (T); ++j) {
       if (raw[j] == 0x00) {
         encoded[mark] = count;
-        mark = encoded.size();
-        encoded.push_back(0x00);  // 新しいブロックのプレースホルダ
+        mark = encoded.size ();
+        encoded.push_back (0x00);
         count = 1;
       } else {
-        encoded.push_back(raw[j]);
+        encoded.push_back (raw[j]);
         ++count;
 
         if (count == 0xFF) {
           encoded[mark] = count;
-          mark = encoded.size();
-          encoded.push_back(0x00);  // 新しいブロック
+          mark = encoded.size ();
+          encoded.push_back (0x00);
           count = 1;
         }
       }
     }
   }
 
-  // 最後のブロック処理
   encoded[mark] = count;
-  encoded.push_back(0x00);  // 終端用
+  encoded.push_back (0x00);
 
   return encoded;
 }

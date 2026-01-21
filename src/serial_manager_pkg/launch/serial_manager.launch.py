@@ -48,6 +48,6 @@ def generate_launch_description():
     return LaunchDescription([
         manager,
         listener,
-        talker,
-        joy
+        # talker,
+        # joy
     ])
